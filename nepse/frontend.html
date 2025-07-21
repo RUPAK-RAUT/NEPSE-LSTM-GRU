@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEPSE Next Day Predictor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        label, select, textarea, input, button { display: block; margin: 10px 0; }
+        #result { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>NEPSE Next Day Predictor</h1>
+    <label for="symbol">Select Symbol:</label>
+    <select id="symbol"></select>
+
+    <label for="sequence">Enter last 30 days (comma-separated):</label>
+    <textarea id="sequence" rows="3" cols="50" placeholder="e.g. 123,124,125,..."></textarea>
+
+    <button id="predictBtn">Predict Next Day</button>
+
+    <div id="result"></div>
+
+    <script>
+        // Fetch symbols for dropdown
+        fetch('http://localhost:8000/symbols')
+            .then(res => res.json())
+            .then(data => {
+                const sel = document.getElementById('symbol');
+                data.symbols.forEach(sym => {
+                    const opt = document.createElement('option');
+                    opt.value = sym;
+                    opt.textContent = sym;
+                    sel.appendChild(opt);
+                });
+            });
+
+        document.getElementById('predictBtn').onclick = function() {
+            const symbol = document.getElementById('symbol').value;
+            const seqStr = document.getElementById('sequence').value;
+            const sequence = seqStr.split(',').map(s => parseFloat(s.trim())).filter(x => !isNaN(x));
+            if (sequence.length !== 30) {
+                document.getElementById('result').textContent = 'Please enter exactly 30 numbers.';
+                return;
+            }
+            fetch('http://localhost:8000/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol, sequence })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.prediction !== undefined) {
+                    document.getElementById('result').textContent = 'Predicted next day value: ' + data.prediction;
+                } else if (data.detail) {
+                    document.getElementById('result').textContent = 'Error: ' + data.detail;
+                } else if (data.predicted_price !== undefined) { // Corrected to check for predicted_price
+                    document.getElementById('result').textContent = 'Predicted next day value: ' + data.predicted_price.toFixed(2); // Added toFixed for formatting
+                } else {
+                    document.getElementById('result').textContent = 'Unknown error.';
+                }
+            })
+            .catch(err => {
+                document.getElementById('result').textContent = 'Request failed.';
+                console.error(err); // Log the error to console
+            });
+        };
+    </script>
+</body>
+</html>
